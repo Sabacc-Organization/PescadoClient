@@ -1,65 +1,45 @@
-# I copy and pasted .gitignore from chatGPT. i dont have time to look at allat. give me a break.
-
-# Flutter/Dart related
-.dart_tool/
-.packages
-.pub/
-build/
-flutter_*.png
-
-# Dependency lock
-pubspec.lock
-
-# Android
-android/.gradle/
-android/.idea/
-android/local.properties
-android/*.iml
-
-# iOS/macOS
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/Generated.xcconfig
-ios/.generated/
-ios/Runner.xcworkspace/
-ios/*.xcodeproj/project.xcworkspace/
-ios/*.xcworkspace/
-macos/Pods/
-macos/Flutter/GeneratedPluginRegistrant.swift
-macos/*.xcodeproj/
-macos/*.xcworkspace/
-macos/.symlinks/
-
-# Web
-web/.dart_tool/
-
-# Windows
-windows/Flutter/ephemeral/
-windows/.idea/
-
-# Linux
-linux/Flutter/ephemeral/
-
-# VS Code
-.vscode/
-
-# IntelliJ
-.idea/
-*.iml
-
-# Xcode
-*.xcworkspace
-*.xcodeproj
-xcuserdata/
-DerivedData/
-*.pbxuser
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-
-# Others
+# Miscellaneous
+*.class
 *.log
-*.tmp
+*.pyc
 *.swp
 .DS_Store
-Thumbs.db
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
