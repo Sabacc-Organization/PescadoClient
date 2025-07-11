@@ -1,0 +1,65 @@
+# I copy and pasted .gitignore from chatGPT. i dont have time to look at allat. give me a break.
+
+# Flutter/Dart related
+.dart_tool/
+.packages
+.pub/
+build/
+flutter_*.png
+
+# Dependency lock
+pubspec.lock
+
+# Android
+android/.gradle/
+android/.idea/
+android/local.properties
+android/*.iml
+
+# iOS/macOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/.generated/
+ios/Runner.xcworkspace/
+ios/*.xcodeproj/project.xcworkspace/
+ios/*.xcworkspace/
+macos/Pods/
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/*.xcodeproj/
+macos/*.xcworkspace/
+macos/.symlinks/
+
+# Web
+web/.dart_tool/
+
+# Windows
+windows/Flutter/ephemeral/
+windows/.idea/
+
+# Linux
+linux/Flutter/ephemeral/
+
+# VS Code
+.vscode/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Xcode
+*.xcworkspace
+*.xcodeproj
+xcuserdata/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Others
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
