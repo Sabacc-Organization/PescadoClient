@@ -63,7 +63,7 @@ class _KesselPlayerWState extends State<KesselPlayerW> {
                         angle: ((40 * i - ((40 * (numOfCards - 1)) / 2)) * pi / 180),
                         child: Transform.translate(
                           offset: Offset(0, -80),
-                          child:  Container(
+                          child:  SizedBox(
                             width: 60,
                             child: KesselCardW(card: card)
                           ),
@@ -82,7 +82,7 @@ class _KesselPlayerWState extends State<KesselPlayerW> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipOval(child: Container(width: 25, height: 25, child: pfp)),
+                  ClipOval(child: SizedBox(width: 25, height: 25, child: pfp)),
                   SizedBox(width: 10),
                   SelectableText(widget.player.username, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14))
                 ]
@@ -95,14 +95,35 @@ class _KesselPlayerWState extends State<KesselPlayerW> {
   }
 }
 
-class KesselCardW extends StatelessWidget {
+class KesselCardW extends StatefulWidget {
   const KesselCardW({super.key, required this.card});
   final KesselCard card;
 
   @override
+  State<KesselCardW> createState() => _KesselCardWState();
+}
+
+class _KesselCardWState extends State<KesselCardW> {
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    print("hello");
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      child: Image.asset("lib/static/img/cards/kessel/pescado/cards/${card.getCardId()}"),
+    return InkWell(
+      onTap: () {
+          print("hi");
+        },
+      child: Container(
+        height: 50,
+        width: 50,
+        color: Colors.blue,
+        child: Image.asset("lib/static/img/cards/kessel/pescado/cards/${widget.card.getCardId()}"),
+      ),
     );
   }
 }

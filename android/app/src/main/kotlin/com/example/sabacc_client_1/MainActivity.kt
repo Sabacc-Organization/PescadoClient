@@ -1,4 +1,4 @@
-package com.example.sabacc_client_1
+package com.example.PescadoClient
 
 import io.flutter.embedding.android.FlutterActivity
 
