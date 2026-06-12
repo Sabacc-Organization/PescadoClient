@@ -51,13 +51,17 @@ class _PreferencesPageState extends State<PreferencesPage> {
                   SabaccConnectionManager.preferences(
                     context,
                     callback: (res) {
-                      print(res.body);
                       if (200 <= res.statusCode && res.statusCode < 300) {
                         context.go("/");
                       } else {
-                        var message = (json.decode(res.body) as Map<String, dynamic>)["message"];
+                        var message = "There was an error. Please try again later.";
+                        try {
+                          message = (json.decode(res.body) as Map<String, dynamic>)["message"];
+                        } on FormatException {
+                          message += " The server may be down currently.";
+                        }
                         setState(() {
-                          _errorMessage = message?? "There was an error. Please try again.";
+                          _errorMessage = message;
                         });
                       }
                     }

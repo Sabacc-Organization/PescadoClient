@@ -1,12 +1,15 @@
 import 'dart:math';
 
 import 'package:PescadoClient/main.dart';
+import 'package:PescadoClient/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:PescadoClient/kessel_gui.dart';
 import 'package:PescadoClient/kessel_helpers.dart';
+import 'package:collection/collection.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 const inversionMatrix = <double>[
   -1, 0, 0, 0, 255,
@@ -101,7 +104,7 @@ class HostGameDropdownW extends StatelessWidget {
   }
 }
 
-class SimpleTextDropdownW extends StatelessWidget {
+class SimpleTextDropdownW extends StatefulWidget {
   final List<PopupMenuEntry<dynamic>> Function(BuildContext) _itemBuilder;
   final String _text;
   const SimpleTextDropdownW({
@@ -112,14 +115,31 @@ class SimpleTextDropdownW extends StatelessWidget {
   : _itemBuilder = itemBuilder, _text = text;
 
   @override
+  State<SimpleTextDropdownW> createState() => _SimpleTextDropdownWState();
+}
+
+class _SimpleTextDropdownWState extends State<SimpleTextDropdownW> {
+  bool _opened = false;
+
+  @override
   Widget build(BuildContext context) {
     return PopupMenuButton(
-      itemBuilder: _itemBuilder,
+      itemBuilder: widget._itemBuilder,
       style: TextButton(onPressed: (){}, child: Text("")).defaultStyleOf(context),
+      onOpened: () {
+        setState(() {
+          _opened = true;
+        });
+      },
+      onCanceled: () {
+        setState(() {
+          _opened = false;
+        });
+      },
       icon: Row(
         children: [
-          Text(_text),
-          Icon(Icons.arrow_drop_down)
+          Text(widget._text),
+          Icon(_opened? Icons.arrow_drop_up : Icons.arrow_drop_down)
         ]
       ),
       offset: Offset(0, 40),
@@ -131,19 +151,30 @@ class SimpleTextFieldW extends StatelessWidget {
   final String? _hint;
   final TextEditingController? _controller;
   final bool _obscureText;
+  final Widget? _icon;
+  final double? _fontSize;
   const SimpleTextFieldW({
     String? hint,
     TextEditingController? controller,
     bool obscureText = false,
+    Widget? icon,
+    double? fontSize,
     super.key
   })
-  : _hint = hint, _controller = controller, _obscureText = obscureText;
+  : _hint = hint,
+  _controller = controller,
+  _obscureText = obscureText,
+  _icon = icon,
+  _fontSize = fontSize;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: _controller,
+      style: TextStyle(fontSize: _fontSize),
       decoration: InputDecoration(
+        // icon: _icon,
+        prefixIcon: _icon,
         hintText: _hint,
         border: OutlineInputBorder(),
       ),
@@ -178,6 +209,610 @@ class SimpleCardW extends StatelessWidget {
             child: _child
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AnnotatedWidget {
+  final Widget widget;
+  final String description;
+  final dynamic additional;
+  const AnnotatedWidget(this.widget, this.description, {this.additional});
+  static AnnotatedWidget text(String message) {
+    return AnnotatedWidget(SelectableText(message), message);
+  }
+}
+
+class SimpleTableColumn {
+  final String title;
+  final List<AnnotatedWidget> children;
+  final int Function(AnnotatedWidget, AnnotatedWidget)? comparator;
+  final bool Function(String, AnnotatedWidget)? searcher;
+  final bool Function(List<bool>, AnnotatedWidget)? filterer;
+  final bool sortable;
+  final int fractionalSize;
+  const SimpleTableColumn(this.title, {required this.children, this.comparator, this.searcher, this.filterer, this.sortable = true, this.fractionalSize = 1});
+
+  @Deprecated("was for default sorting behavior, keeping it around cause it could come in handy.")
+  static String getWidgetText(Widget x) {
+    if (x is Text) {
+      return x.data ?? "";
+    } else if (x is SelectableText) {
+      return x.data ?? "";
+    } else if (x is RichText) {
+      return x.text.toPlainText();
+    } else if (x is Container) {
+      return getWidgetText(x.child?? Text(""));
+    } else if (x is Padding) {
+      return getWidgetText(x.child?? Text(""));
+    } else if (x is SizedBox) {
+      return getWidgetText(x.child?? Text(""));
+    } else if (x is GestureDetector) {
+      return getWidgetText(x.child?? Text(""));
+    }
+    return "";
+  }
+
+  List<int> sort() {
+    List<int> temp = List.generate(children.length, (index) => index);
+    if (comparator == null) {
+      temp.sort((a, b) => compareNatural(children[a].description, children[b].description));
+      return temp;
+    }
+    temp.sort((a, b) => comparator!(children[a], children[b]));
+    return temp;
+  }
+
+  List<bool> filter(List<bool> filters) {
+    if (filterer == null) {
+      return List.filled(children.length, true);
+    }
+    return children.map((widget) =>
+      filterer!(filters, widget)
+    ).toList();
+  }
+
+  List<bool> search(String query) {
+    if (searcher == null) {
+      return children.map((widget) {
+        var a = widget.description;
+        return (a.toLowerCase().contains(query.toLowerCase()) || a.isEmpty);
+      }).toList();
+    }
+    if (query.isEmpty) {
+      return List.filled(children.length, true);
+    }
+    return children.map((widget) =>
+      searcher!(query, widget)
+    ).toList();
+  }
+
+  List<bool> allowedRows(List<bool> filters, String query) {
+    var matchFilters = filter(filters);
+    var matchSearch = search(query);
+    return List.generate(children.length, (index) => matchFilters[index] && matchSearch[index]);
+  }
+
+  SimpleTableColumn withRows(List<AnnotatedWidget> rows) {
+    return SimpleTableColumn(title, children: children + rows, comparator: comparator, filterer: filterer, searcher: searcher, sortable: sortable, fractionalSize: fractionalSize);
+  }
+}
+
+class SimpleTableW extends StatefulWidget {
+  final List<SimpleTableColumn> columns;
+  final List<(String, bool)> filters;
+  final bool enableSearchBar;
+  const SimpleTableW({
+    super.key,
+    required this.filters,
+    required this.columns,
+    this.enableSearchBar = false,
+  });
+
+  @override
+  State<StatefulWidget> createState() => _SimpleTableWState();
+
+  SimpleTableW withRows(List<List<AnnotatedWidget>> rows) {
+    return SimpleTableW(filters: filters, enableSearchBar: enableSearchBar, columns: columns.mapIndexed((index, oldColumn) =>
+      oldColumn.withRows(List.generate(rows.length, (index2) => rows[index2][index]))
+    ).toList());
+  }
+}
+
+class _SimpleTableWState extends State<SimpleTableW> {
+  List<int> _rows = [];
+  List<bool> _filters = [];
+  int? _sortedBy;
+  bool _descending = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filters = widget.filters.map((filter) => filter.$2).toList();
+    _searchController.addListener(() {
+      setState(() {
+        evaluateRows();
+      });
+    });
+    evaluateRows();
+  }
+
+  @override
+  void didUpdateWidget(covariant SimpleTableW oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    evaluateRows();
+  }
+
+  int numOfRows() {
+    return widget.columns.first.children.length;
+  }
+
+  void evaluateRows() {
+    List<int> temp;
+    if (_sortedBy == null) {
+      temp = List.generate(numOfRows(), (index) => index);
+    } else {
+      temp = widget.columns[_sortedBy!].sort();
+    }
+    if (_descending) {
+      temp.reverseRange(0, numOfRows());
+    }
+    List<bool> matchSearch = List.filled(numOfRows(), false);
+    List<bool> matchFilters = List.filled(numOfRows(), true);
+
+    widget.columns.forEachIndexed((index, column) {
+      if (_searchController.text.isEmpty) {
+        matchSearch = List.filled(numOfRows(), true);
+      } else {
+        column.search(_searchController.text).forEachIndexed((index, matches) {
+          matchSearch[index] = matchSearch[index] || matches;
+        });
+      }
+      column.filter(_filters).forEachIndexed((index, matches) {
+        matchFilters[index] = matchFilters[index] && matches;
+      });
+    });
+
+    _rows = temp.where((row) => matchFilters[row] && matchSearch[row]).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Column col = Column(
+      spacing: 10,
+      children: [
+        if (widget.enableSearchBar) SimpleTextFieldW(
+          controller: _searchController,
+          hint: "Search",
+          icon: Icon(Icons.search),
+        ),
+        Wrap(
+          spacing: 40,
+          children: [
+            ...widget.filters.mapIndexed((index, filter) =>
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Switch(
+                    value: _filters[index],
+                    onChanged: (value) {
+                      setState(() {
+                        _filters[index] = value;
+                        evaluateRows();
+                      });
+                    }
+                  ),
+                  SelectableText(filter.$1),
+                ],
+              )
+            ),
+          ],
+        ),
+        Table(
+          columnWidths: { for (var element in List.generate(widget.columns.length, (index) =>
+            (index, FlexColumnWidth(widget.columns[index].fractionalSize.toDouble()))
+          )) element.$1 : element.$2 },
+          border: TableBorder.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            width: 2,
+            borderRadius: BorderRadius.all(Radius.circular(5))
+          ),
+          children: [
+            TableRow(
+              children: [
+                ...widget.columns.mapIndexed((index, column) =>
+                  TableCell(
+                    child: SelectionArea(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () {
+                          if (column.sortable) {
+                            setState(() {
+                              if (_sortedBy == index) {
+                                if (_descending) {
+                                  _descending = false;
+                                  _sortedBy = null;
+                                } else {
+                                  _descending = true;
+                                }
+                              } else {
+                                _descending = false;
+                                _sortedBy = index;
+                              }
+                              evaluateRows();
+                            });
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                column.title,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900
+                                ),
+                              ),
+                              Icon(_sortedBy == index? _descending? Icons.arrow_drop_down : Icons.arrow_drop_up : null)
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                )
+              ]
+            ),
+            ..._rows.mapIndexed((index, row) =>
+              TableRow(
+                decoration: index.isEven? BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest) : null,
+                children: [
+                  ...widget.columns.map((column) {
+                    return TableCell(
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: column.children[row].widget,
+                      )
+                    );
+                  })
+                ]
+              )
+            ),
+          ],
+        ),
+      ],
+    );
+    if (widget.enableSearchBar || widget.filters.isNotEmpty) {
+      return SimpleCardW(
+        maxWidth: double.infinity,
+        child: col
+      );
+    }
+    return col;
+  }
+}
+
+class SimplePlayerCardW extends StatelessWidget {
+  final Player player;
+  const SimplePlayerCardW(this.player, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        context.go("/player/${player.username}");
+      },
+      child: Card(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        child: Padding(
+          padding: const EdgeInsets.all(3),
+          child: Text(player.username),
+        )
+      ),
+    );
+  }
+}
+
+class SimpleGameCardW extends StatelessWidget {
+  final int id;
+  final GameVariant variant;
+  final bool inGame;
+  const SimpleGameCardW(this.id, this.variant, this.inGame, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        context.go("/game/${variant.slug()}/$id");
+      },
+      child: Card(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(3),
+          child: Text(inGame? "Play" : "View"),
+        )
+      ),
+    );
+  }
+}
+
+class TimelineGameData {
+  final List<String> dates;
+  final List<int> traditional;
+  final List<int> corellianSpike;
+  final List<int> kessel;
+  final List<int> total;
+  const TimelineGameData(this.dates, this.traditional, this.corellianSpike, this.kessel, this.total);
+  static TimelineGameData fromJson(Map<String, dynamic> data) {
+    return TimelineGameData(
+      cast<List<dynamic>>(data["dates"])!.cast<String>(),
+      cast<List<dynamic>>((data["traditional"]))!.cast<int>(),
+      cast<List<dynamic>>(data["corellianSpike"])!.cast<int>(),
+      cast<List<dynamic>>(data["kessel"])!.cast<int>(),
+      cast<List<dynamic>>(data["total"])!.cast<int>()
+    );
+  }
+}
+
+class SimpleTimelineW extends StatefulWidget {
+  final TimelineGameData days7;
+  final TimelineGameData days30;
+  final TimelineGameData months12;
+  final TimelineGameData lifetime;
+  const SimpleTimelineW(this.days7, this.days30, this.months12, this.lifetime, {super.key});
+
+  @override
+  State<SimpleTimelineW> createState() => _SimpleTimelineWState();
+}
+
+class _SimpleTimelineWState extends State<SimpleTimelineW> {
+  final TextEditingController _timespan = TextEditingController();
+
+  TimelineGameData getData() {
+    if (_timespan.text == "Last 7 Days") {
+      return widget.days7;
+    } else if (_timespan.text == "Last 30 Days") {
+      return widget.days30;
+    } else if (_timespan.text == "Last 12 Months") {
+      return widget.months12;
+    } else {
+      return widget.lifetime;
+    }
+  }
+
+  List<FlSpot> getPoints(GameVariant? variant) {
+    TimelineGameData data = getData();
+    print(data.dates);
+    print("${data.total.length}, ${data.traditional.length}, ${data.corellianSpike.length}, ${data.kessel.length}");
+    int dataNum = data.dates.length;
+    List<int> variantData;
+    switch (variant) {
+      case GameVariant.traditional: variantData = data.traditional; break;
+      case GameVariant.corellianSpike: variantData = data.corellianSpike; break;
+      case GameVariant.kessel: variantData = data.kessel; break;
+      case null: variantData = data.total; break;
+    }
+    return List.generate(dataNum, (index) =>
+      FlSpot(index.toDouble(), variantData[index].toDouble())
+    );
+  }
+
+  Widget getDates(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.bold,
+    );
+    String text = getData().dates[value.toInt()];
+
+    return SideTitleWidget(
+      meta: meta,
+      space: 4,
+      child: Transform.rotate(
+        alignment: AlignmentGeometry.center,
+        angle: -pi / 3,
+        child: FractionalTranslation(
+          translation: Offset(-0.5, 0),
+          child: Text(text, style: style)
+        )
+      ),
+    );
+  }
+
+  Widget leftTitleWidgets(double value, TitleMeta meta) {
+    return SideTitleWidget(
+      meta: meta,
+      child: Text(
+        value.toInt().toString(),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _timespan.value = TextEditingValue(text: "Last 7 Days");
+    _timespan.addListener(() {
+      setState(() { /* timespan value changed */ print("changed to ${_timespan.text}"); });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleCardW(
+      maxWidth: double.infinity,
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ...[
+                    ("Total", Colors.amber),
+                    ("Traditional", Colors.green),
+                    ("Corellian Spike", Colors.red),
+                    ("Kessel", Colors.blue),
+                  ].map((element) =>
+                    Card(
+                      color: element.$2,
+                      child: Padding(
+                        padding: EdgeInsetsGeometry.all(3),
+                        child: SelectableText(element.$1)
+                      ),
+                    )
+                  ),
+                ],
+              ),
+              DropdownMenu(
+                selectOnly: true,
+                controller: _timespan,
+                inputDecorationTheme: InputDecorationTheme(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  constraints: BoxConstraints.tight(const Size.fromHeight(40)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                dropdownMenuEntries: [
+                  DropdownMenuEntry(value: "Last 7 Days", label: "Last 7 Days"),
+                  DropdownMenuEntry(value: "Last 30 Days", label: "Last 30 Days"),
+                  DropdownMenuEntry(value: "Last 12 Months", label: "Last 12 Months"),
+                  DropdownMenuEntry(value: "Lifetime", label: "Lifetime")
+                ]
+              ),
+            ]
+          ),
+          SizedBox(height: 25,),
+          SizedBox(
+            height: 400,
+            child: LineChart(
+              LineChartData(
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    fitInsideVertically: true,
+                    fitInsideHorizontally: true,
+                    maxContentWidth: 150,
+                    getTooltipItems: (spots) {
+                      List<LineTooltipItem?> ret = [null, null, null, null];
+                      for (var spot in spots) {
+                        (int, String) line;
+                        if (spot.bar.color == Colors.amber) {
+                          line = (0, "Total: ");
+                        } else if (spot.bar.color == Colors.green) {
+                          line = (1, "Traditional: ");
+                        } else if (spot.bar.color == Colors.red) {
+                          line = (2, "Corellian Spike: ");
+                        } else {
+                          line = (3, "Kessel: ");
+                        }
+                        ret[line.$1] = LineTooltipItem(
+                          line.$2 + spot.y.toInt().toString(),
+                          TextStyle(
+                            color: spot.bar.gradient?.colors.first ??
+                              spot.bar.color ??
+                              Colors.blueGrey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          )
+                        );
+                      }
+                      return ret;
+                    }
+                  )
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: getPoints(null),
+                    isCurved: false,
+                    barWidth: 2,
+                    color: Colors.amber,
+                    dotData: const FlDotData(
+                      show: true,
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: getPoints(GameVariant.traditional),
+                    isCurved: false,
+                    barWidth: 2,
+                    color: Colors.green,
+                    dotData: const FlDotData(
+                      show: true,
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: getPoints(GameVariant.corellianSpike),
+                    isCurved: false,
+                    barWidth: 2,
+                    color: Colors.red,
+                    dotData: const FlDotData(
+                      show: true,
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: getPoints(GameVariant.kessel),
+                    isCurved: false,
+                    barWidth: 2,
+                    color: Colors.blue,
+                    dotData: const FlDotData(
+                      show: true,
+                    ),
+                  ),
+                ],
+                minY: 0,
+                maxY: max(getData().total.max + 1, 3),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey),
+                    left: BorderSide(color: Colors.grey, width: 0.4)
+                  )
+                ),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitleAlignment: SideTitleAlignment.outside,
+                    drawBelowEverything: true,
+                    sideTitles: SideTitles(
+                      reservedSize: 60,
+                      maxIncluded: true,
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: getDates,
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    axisNameWidget: SelectableText("Number of Games"),
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      minIncluded: false,
+                      getTitlesWidget: leftTitleWidgets,
+                      interval: 1,
+                      reservedSize: 36,
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 1,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

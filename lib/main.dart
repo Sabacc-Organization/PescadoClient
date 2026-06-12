@@ -3,11 +3,10 @@ import 'package:PescadoClient/screens/login.dart';
 import 'package:PescadoClient/screens/player_stats.dart';
 import 'package:PescadoClient/screens/preferences.dart';
 import 'package:PescadoClient/screens/register.dart';
+import 'package:PescadoClient/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-// import 'screens/login.dart';
 import 'screens/lobby.dart';
 
 void main() {
@@ -53,7 +52,7 @@ class SabaccApp extends StatelessWidget {
       ),
       GoRoute(
         path: "/player/:username",
-        pageBuilder: (context, state) => pageTransition(PlayerStatsPage(player: state.pathParameters["username"]!), context, state)
+        pageBuilder: (context, state) => pageTransition(PlayerStatsPage(player: Player(username: state.pathParameters["username"]!)), context, state)
       ),
     ]
   );
@@ -86,16 +85,16 @@ class SabaccApp extends StatelessWidget {
 }
 
 class AppwideDataProvider extends ChangeNotifier {
-  String _username = "";
+  Player? _player;
   String _password = "";
-  String _backendUrl = "sabacc.paishofish49.net:5161";
+  final String _backendUrl = "sabacc.paishofish49.net:5161";
   bool _darkMode = true;
-  bool _loggedIn = false;
-  String get username => _username;
+  Player? get player => _player;
+  bool get loggedIn => _player != null;
+  String get username => player == null? "" : player!.username;
   String get password => _password;
   String get backendUrl => _backendUrl;
   bool get darkMode => _darkMode;
-  bool get loggedIn => _loggedIn;
   AppwideDataProvider(bool darkMode) : _darkMode = darkMode;
 
   static AppwideDataProvider from(BuildContext context, {bool listen = true}) {
@@ -106,14 +105,13 @@ class AppwideDataProvider extends ChangeNotifier {
     _darkMode = dm;
     notifyListeners();
   }
-  void logIn(String username, String password) {
-    _username = username;
+  void logIn(Player player, String password) {
+    _player = player;
     _password = password;
-    _loggedIn = true;
     notifyListeners();
   }
   void logOut() {
-    _loggedIn = false;
+    _player = null;
     notifyListeners();
   }
 }

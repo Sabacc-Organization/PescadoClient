@@ -3,7 +3,6 @@
 import 'package:PescadoClient/general_gui.dart';
 import 'package:PescadoClient/main.dart';
 import 'package:flutter/material.dart';
-// import 'package:vector_math/vector_math_64.dart' hide Colors;
 
 const b = 1.25;
 const brighteningMatrix = <double>[
@@ -26,11 +25,14 @@ class PageTemplateW extends StatelessWidget {
         SizedBox.expand(
           child: AnimatedCrossFade(
             duration: context.findAncestorWidgetOfExactType<MaterialApp>()!.themeAnimationDuration,
-            firstChild: SizedBox.expand(
-              child: Image.asset(
-                "lib/static/img/space.jpg",
-                fit: BoxFit.cover,
-                alignment: AlignmentGeometry.center,
+            firstChild: Container(
+              color: Colors.black,
+              child: SizedBox.expand(
+                child: Image.asset(
+                  "lib/static/img/space.jpg",
+                  fit: BoxFit.cover,
+                  alignment: AlignmentGeometry.center,
+                ),
               ),
             ),
             secondChild: SizedBox.expand(

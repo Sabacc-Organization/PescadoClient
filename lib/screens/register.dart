@@ -3,6 +3,7 @@ import 'package:PescadoClient/general_gui.dart';
 import 'package:PescadoClient/main.dart';
 import 'package:PescadoClient/network/connection.dart';
 import 'package:PescadoClient/screens/page_template.dart';
+import 'package:PescadoClient/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -48,14 +49,18 @@ class _RegisterPageState extends State<RegisterPage> {
                     password: _passwordController.text,
                     confirmPassword: _passwordConfirmController.text,
                     callback: (res) {
-                      print(res.body);
                       if (200 <= res.statusCode && res.statusCode < 300) {
-                        appwideData.logIn(_usernameController.text, _passwordController.text);
+                        appwideData.logIn(Player(username: _usernameController.text), _passwordController.text);
                         context.go("/");
                       } else {
-                        var message = (json.decode(res.body) as Map<String, dynamic>)["message"];
+                        var message = "There was an error. Please try again later.";
+                        try {
+                          message = (json.decode(res.body) as Map<String, dynamic>)["message"];
+                        } on FormatException {
+                          message += " The server may be down currently.";
+                        }
                         setState(() {
-                          _errorMessage = message?? "There was an error. Please try again.";
+                          _errorMessage = message;
                         });
                       }
                     }
