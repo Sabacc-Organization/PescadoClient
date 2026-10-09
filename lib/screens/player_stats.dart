@@ -21,36 +21,6 @@ class PlayerStatsPage extends StatelessWidget {
 
   const PlayerStatsPage({super.key, required Player player}) : _player = player;
 
-  List<AnnotatedWidget> gameToRow(GameVariant variant, Map<String, dynamic> game, BuildContext context) {
-    AppwideDataProvider appwideData = AppwideDataProvider.from(context);
-    List<Player> players = cast<List<dynamic>>(game["players"])!.cast<Map<String, dynamic>>().map((player) =>
-      Player(id: player["id"], username: player["username"])
-    ).toList();
-    DateTime? createdAt = DateTime.tryParse(game["created_at"].toString());
-    String createdAtString = (createdAt == null)? "N/A" :
-      "${["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][createdAt.weekday]}, "
-      "${["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][createdAt.month]} ${createdAt.day}, "
-      "${createdAt.year}";
-    bool playerInGame = appwideData.loggedIn && players.any((player) => player.equals(appwideData.player!));
-    return [
-      AnnotatedWidget.text(variant.toString()),
-      AnnotatedWidget.text(cast<int>(game["id"]).toString()),
-      AnnotatedWidget(
-        Wrap(
-          children: [
-            ...players.map((player) => SimplePlayerCardW(player))
-          ],
-        ),
-        players.map((player) => player.username).join(", "),
-        additional: players
-      ),
-      AnnotatedWidget.text(game["player_turn"].toString()),
-      AnnotatedWidget(SelectableText(createdAtString), game["created_at"].toString(), additional: createdAt),
-      AnnotatedWidget.text(cast<String>(game["p_act"]).toString()),
-      AnnotatedWidget(SimpleGameCardW(cast<int>(game["id"])!, variant, playerInGame), "")
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     var appwideData = AppwideDataProvider.from(context);
@@ -177,113 +147,10 @@ class PlayerStatsPage extends StatelessWidget {
                           ),
                           Divider(),
                           SelectableText("Game History", style: Theme.of(context).textTheme.headlineSmall,),
-                          SimpleTableW(
-                            enableSearchBar: true,
-                            filters: [
-                              ("Traditional", false),
-                              ("Corellian Spike", false),
-                              ("Kessel", false),
-                              ("Only show active games", false),
-                              ("Only show games where its ${_player.username}'s turn", false),
-                              ("Show completed games", true)
-                            ],
-                            columns: [
-                              SimpleTableColumn(
-                                "Variant",
-                                fractionalSize: 3,
-                                filterer: (filters, widget)  {
-                                  if (filters[0] && filters[1] && filters[2]) {
-                                    return true;
-                                  }
-                                  if (!(filters[0] || filters[1] || filters[2])) {
-                                    return true;
-                                  }
-                                  if (widget.description == "Traditional" && !filters[0]) {
-                                    return false;
-                                  }
-                                  if (widget.description == "Corellian Spike" && !filters[1]) {
-                                    return false;
-                                  }
-                                  if (widget.description == "Kessel" && !filters[2]) {
-                                    return false;
-                                  }
-                                  return true;
-                                },
-                                children: []
-                              ),
-                              SimpleTableColumn(
-                                "ID",
-                                fractionalSize: 2,
-                                children: []
-                              ),
-                              SimpleTableColumn(
-                                "Players",
-                                fractionalSize: 6,
-                                children: []
-                              ),
-                              SimpleTableColumn(
-                                "Player Turn",
-                                fractionalSize: 3,
-                                filterer: (filters, widget) {
-                                  if (!filters[5] && widget.description == "Completed") {
-                                    return false;
-                                  }
-                                  bool isPlayersTurn = widget.description == _player.username;
-                                  if (filters[4] && !isPlayersTurn) {
-                                    return false;
-                                  }
-                                  return true;
-                                },
-                                children: []
-                              ),
-                              SimpleTableColumn(
-                                "Date Created",
-                                fractionalSize: 4,
-                                comparator: (first, second) {
-                                  if (first.additional == null && second.additional == null) {
-                                    return 0;
-                                  }
-                                  if (first.additional == null) {
-                                    return -1;
-                                  }
-                                  if (second.additional == null) {
-                                    return 1;
-                                  }
-                                  return cast<DateTime>(first.additional)!.compareTo(cast<DateTime>(second.additional)!);
-                                },
-                                filterer: (filters, widget) {
-                                  if (filters[3]
-                                    && (DateTime.now().difference(cast<DateTime>(widget.additional)!)) > Duration(days: 2)) {
-                                    return false;
-                                  }
-                                  return true;
-                                },
-                                children: []
-                              ),
-                              SimpleTableColumn(
-                                "Last Move",
-                                fractionalSize: 5,
-                                children: []
-                              ),
-                              SimpleTableColumn(
-                                "Link",
-                                fractionalSize: 2,
-                                sortable: false,
-                                children: []
-                              ),
-                            ]
-                          ).withRows(
-                            [
-                              ...cast<List<dynamic>>(stats["games"]["traditional"])!.cast<Map<String, dynamic>>().map((game) =>
-                                gameToRow(GameVariant.traditional, game, context)
-                              ),
-                              ...cast<List<dynamic>>(stats["games"]["corellianSpike"])!.cast<Map<String, dynamic>>().map((game) =>
-                                gameToRow(GameVariant.corellianSpike, game, context)
-                              ),
-                              ...cast<List<dynamic>>(stats["games"]["kessel"])!.cast<Map<String, dynamic>>().map((game) =>
-                                gameToRow(GameVariant.kessel, game, context)
-                              ),
-                            ]
+                          SimpleGameTableW(
+                            player: _player,
+                            inputFormat: 0,
+                            games: cast<Map<String, dynamic>>(stats["games"])!.cast<String, List<dynamic>>(),
                           )
                         ],
                       )

@@ -32,6 +32,17 @@ enum GameVariant {
       return "kessel";
     }
   }
+
+  String snakeSlug() {
+    if (this == traditional) {
+      return "traditional";
+    } else if (this == corellianSpike) {
+      return "corellian_spike";
+    } else {
+      return "kessel";
+    }
+  }
+
 }
 
 class Player {

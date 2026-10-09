@@ -44,6 +44,8 @@ dependencies:
   url_launcher: ^6.3.2
   fl_chart: ^1.2.0
   collection: ^1.19.1
+  paishofish49_toolkit:
+    path: /mnt/data/JosephsStuff/Coding/Languages/FlutterDart/paishofish49_toolkit
 
 dev_dependencies:
   flutter_test:

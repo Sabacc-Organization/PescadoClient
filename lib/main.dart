@@ -1,4 +1,6 @@
 import 'package:PescadoClient/screens/credits.dart';
+import 'package:PescadoClient/screens/games.dart';
+import 'package:PescadoClient/screens/host.dart';
 import 'package:PescadoClient/screens/login.dart';
 import 'package:PescadoClient/screens/player_stats.dart';
 import 'package:PescadoClient/screens/preferences.dart';
@@ -53,6 +55,14 @@ class SabaccApp extends StatelessWidget {
       GoRoute(
         path: "/player/:username",
         pageBuilder: (context, state) => pageTransition(PlayerStatsPage(player: Player(username: state.pathParameters["username"]!)), context, state)
+      ),
+      GoRoute(
+        path: "/myGames",
+        pageBuilder: (context, state) => pageTransition(MyGamesPage(), context, state),
+      ),
+      GoRoute(
+        path: "/host",
+        pageBuilder: (context, state) => pageTransition(HostPage(), context, state),
       ),
     ]
   );

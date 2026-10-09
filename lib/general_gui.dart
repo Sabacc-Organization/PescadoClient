@@ -25,23 +25,6 @@ const identityMatrix = <double>[
   0, 0, 0, 1, 0,
 ];
 
-class SimpleTextButtonW extends StatelessWidget {
-  final void Function() _onClick;
-  final String _text;
-
-  const SimpleTextButtonW({
-    required void Function() onClick,
-    required String text,
-    super.key
-  })
-  : _onClick = onClick, _text = text;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(onPressed: _onClick, child: Text(_text));
-  }
-}
-
 class UserDropdownW extends StatelessWidget {
   const UserDropdownW({super.key});
 
@@ -65,6 +48,9 @@ class UserDropdownW extends StatelessWidget {
           child: Text("Preferences")
         ),
         PopupMenuItem(
+          onTap: () {
+            context.go("/myGames");
+          },
           child: Text("My Games")
         ),
         PopupMenuItem(
@@ -73,33 +59,14 @@ class UserDropdownW extends StatelessWidget {
           },
           child: Text("Statistics")
         ),
+        PopupMenuItem(
+          onTap: () {
+            context.go("/host");
+          },
+          child: Text("Host A Game")
+        ),
       ],
       text: appwideData.username,
-    );
-  }
-}
-
-class HostGameDropdownW extends StatelessWidget {
-  const HostGameDropdownW({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SimpleTextDropdownW(
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          child: Text("Traditional")
-        ),
-        PopupMenuItem(
-          child: Text("Corellian Spike")
-        ),
-        PopupMenuItem(
-          child: Text("Kessel")
-        ),
-        PopupMenuItem(
-          child: Text("Coruscant Shift")
-        ),
-      ],
-      text: "Host Game",
     );
   }
 }
@@ -497,6 +464,157 @@ class _SimpleTableWState extends State<SimpleTableW> {
   }
 }
 
+class SimpleGameTableW extends StatelessWidget {
+  final Map<String, List<dynamic>> games;
+  final Player player;
+  /// 0-User Stats Format, 1-Index Format
+  final int inputFormat;
+  const SimpleGameTableW({super.key, required this.games, required this.player, required this.inputFormat});
+
+  List<AnnotatedWidget> gameToRow(GameVariant variant, Map<String, dynamic> game, int index, BuildContext context) {
+    AppwideDataProvider appwideData = AppwideDataProvider.from(context);
+    List<Player> players = cast<List<dynamic>>(game["players"])!.cast<Map<String, dynamic>>().map((player) =>
+      Player(id: player["id"], username: player["username"])
+    ).toList();
+    DateTime? createdAt = DateTime.tryParse(game["created_at"].toString());
+    String createdAtString = (createdAt == null)? "N/A" :
+      "${["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][createdAt.weekday]}, "
+      "${["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][createdAt.month]} ${createdAt.day}, "
+      "${createdAt.year}";
+    bool playerInGame = appwideData.loggedIn && players.any((player) => player.equals(appwideData.player!));
+    String playerTurnKeyString = """${variant.snakeSlug()}_player_turn_usernames""";
+    return [
+      AnnotatedWidget.text(variant.toString()),
+      AnnotatedWidget.text(cast<int>(game["id"]).toString()),
+      AnnotatedWidget(
+        Wrap(
+          children: [
+            ...players.map((player) => SimplePlayerCardW(player))
+          ],
+        ),
+        players.map((player) => player.username).join(", "),
+        additional: players
+      ),
+      AnnotatedWidget.text(inputFormat == 0? game["player_turn"].toString() : games[playerTurnKeyString]![index]),
+      AnnotatedWidget(SelectableText(createdAtString), game["created_at"].toString(), additional: createdAt),
+      AnnotatedWidget.text(cast<String>(game["p_act"]).toString()),
+      AnnotatedWidget(SimpleGameCardW(cast<int>(game["id"])!, variant, playerInGame), "")
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleTableW(
+      enableSearchBar: true,
+      filters: [
+        ("Traditional", false),
+        ("Corellian Spike", false),
+        ("Kessel", false),
+        ("Only show active games", false),
+        ("Only show games where its ${player.username}'s turn", false),
+        ("Show completed games", true)
+      ],
+      columns: [
+        SimpleTableColumn(
+          "Variant",
+          fractionalSize: 3,
+          filterer: (filters, widget)  {
+            if (filters[0] && filters[1] && filters[2]) {
+              return true;
+            }
+            if (!(filters[0] || filters[1] || filters[2])) {
+              return true;
+            }
+            if (widget.description == "Traditional" && !filters[0]) {
+              return false;
+            }
+            if (widget.description == "Corellian Spike" && !filters[1]) {
+              return false;
+            }
+            if (widget.description == "Kessel" && !filters[2]) {
+              return false;
+            }
+            return true;
+          },
+          children: []
+        ),
+        SimpleTableColumn(
+          "ID",
+          fractionalSize: 2,
+          children: []
+        ),
+        SimpleTableColumn(
+          "Players",
+          fractionalSize: 6,
+          children: []
+        ),
+        SimpleTableColumn(
+          "Player Turn",
+          fractionalSize: 3,
+          filterer: (filters, widget) {
+            if (!filters[5] && widget.description == "Completed") {
+              return false;
+            }
+            bool isPlayersTurn = widget.description == player.username;
+            if (filters[4] && !isPlayersTurn) {
+              return false;
+            }
+            return true;
+          },
+          children: []
+        ),
+        SimpleTableColumn(
+          "Date Created",
+          fractionalSize: 4,
+          comparator: (first, second) {
+            if (first.additional == null && second.additional == null) {
+              return 0;
+            }
+            if (first.additional == null) {
+              return -1;
+            }
+            if (second.additional == null) {
+              return 1;
+            }
+            return cast<DateTime>(first.additional)!.compareTo(cast<DateTime>(second.additional)!);
+          },
+          filterer: (filters, widget) {
+            if (filters[3]
+              && (DateTime.now().difference(cast<DateTime>(widget.additional)!)) > Duration(days: 2)) {
+              return false;
+            }
+            return true;
+          },
+          children: []
+        ),
+        SimpleTableColumn(
+          "Last Move",
+          fractionalSize: 5,
+          children: []
+        ),
+        SimpleTableColumn(
+          "Link",
+          fractionalSize: 2,
+          sortable: false,
+          children: []
+        ),
+      ]
+    ).withRows(
+      [
+        ...games[inputFormat == 0? "traditional" : "traditional_games"]!.cast<Map<String, dynamic>>().mapIndexed((index, game) =>
+          gameToRow(GameVariant.traditional, game, index, context)
+        ),
+        ...games[inputFormat == 0? "corellianSpike" : "corellian_spike_games"]!.cast<Map<String, dynamic>>().mapIndexed((index, game) =>
+          gameToRow(GameVariant.corellianSpike, game, index, context)
+        ),
+        ...games[inputFormat == 0? "kessel" : "kessel_games"]!.cast<Map<String, dynamic>>().mapIndexed((index, game) =>
+          gameToRow(GameVariant.kessel, game, index, context)
+        ),
+      ]
+    );
+  }
+}
+
 class SimplePlayerCardW extends StatelessWidget {
   final Player player;
   const SimplePlayerCardW(this.player, {super.key});
@@ -588,8 +706,6 @@ class _SimpleTimelineWState extends State<SimpleTimelineW> {
 
   List<FlSpot> getPoints(GameVariant? variant) {
     TimelineGameData data = getData();
-    print(data.dates);
-    print("${data.total.length}, ${data.traditional.length}, ${data.corellianSpike.length}, ${data.kessel.length}");
     int dataNum = data.dates.length;
     List<int> variantData;
     switch (variant) {
@@ -638,7 +754,7 @@ class _SimpleTimelineWState extends State<SimpleTimelineW> {
     super.initState();
     _timespan.value = TextEditingValue(text: "Last 7 Days");
     _timespan.addListener(() {
-      setState(() { /* timespan value changed */ print("changed to ${_timespan.text}"); });
+      setState(() { /* timespan value changed */ });
     });
   }
 
@@ -863,7 +979,6 @@ class SabaccAppBarW extends StatelessWidget implements PreferredSizeWidget {
           child: Row(
             children: [
               if (appwideData.loggedIn) ...[
-                HostGameDropdownW(),
                 UserDropdownW()
               ],
               if (!appwideData.loggedIn) ...[

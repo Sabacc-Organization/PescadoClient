@@ -7,6 +7,10 @@ import 'package:http/http.dart' as http;
 
 final timeoutDuration = Duration(seconds: 2);
 
+http.Response timeoutCallback() {
+  return http.Response("", 408);
+}
+
 class SabaccConnectionManager {
   static void post(
     BuildContext context,
@@ -20,7 +24,7 @@ class SabaccConnectionManager {
       uri,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode(data)
-    ).timeout(timeoutDuration).then(callback);
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback).then(callback);
   }
 
   static void login(
@@ -35,7 +39,7 @@ class SabaccConnectionManager {
       uri,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"username": username, "password": password})
-    ).timeout(timeoutDuration)
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback)
     .then((res) {
       if (200 <= res.statusCode && res.statusCode < 300) {
         post(context, data: {
@@ -68,7 +72,7 @@ class SabaccConnectionManager {
       uri,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"username": username, "password": password, "confirmPassword": confirmPassword})
-    ).timeout(timeoutDuration)
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback)
     .then((res) {
       if (200 <= res.statusCode && res.statusCode < 300) {
         preferences(context, update: false, callback: (res2) {
@@ -77,6 +81,29 @@ class SabaccConnectionManager {
       }
       return res;
     })
+    .then(callback);
+  }
+
+  static void host(
+    BuildContext context,
+    {required String username,
+    required String password,
+    required List<String> players,
+    required GameVariant variant,
+    required FutureOr<Null> Function(http.Response) callback}
+  ) {
+    var appwideData = AppwideDataProvider.from(context, listen: false);
+    final uri = Uri.https(appwideData.backendUrl, "/host");
+    http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "username": username,
+        "password": password,
+        "players": players,
+        "game_variant": variant.snakeSlug()
+      })
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback,)
     .then(callback);
   }
 
@@ -95,7 +122,7 @@ class SabaccConnectionManager {
         "password": appwideData.password,
         if (update) "dark": appwideData.darkMode
       })
-    ).timeout(timeoutDuration).then(callback);
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback).then(callback);
   }
 
   static Future<http.Response> playerStats(
@@ -108,7 +135,24 @@ class SabaccConnectionManager {
       uri,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"username": player})
-    ).timeout(timeoutDuration);
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback);
+  }
+
+  static Future<http.Response> myGames(
+    BuildContext context,
+    {required String player,
+    required String password}
+  ) {
+    var appwideData = AppwideDataProvider.from(context, listen: false);
+    final uri = Uri.https(appwideData.backendUrl, "/");
+    return http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "username": player,
+        "password": password
+      })
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback);
   }
 
   static Future<Player?> playerLookup(
@@ -122,8 +166,8 @@ class SabaccConnectionManager {
       uri,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"username": ?username, "id": ?id})
-    ).timeout(timeoutDuration, onTimeout: () => http.Response("", 408)
-    ).then((res) {
+    ).timeout(timeoutDuration, onTimeout: timeoutCallback)
+    .then((res) {
       if (200 <= res.statusCode && res.statusCode < 300) {
         Map<String, dynamic> json = jsonDecode(res.body) as Map<String, dynamic>;
         return Player(username: cast<String>(json["username"])!, id: cast<int>(id));
